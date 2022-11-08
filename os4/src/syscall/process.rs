@@ -1,9 +1,9 @@
 //! Process management syscalls
 
 use crate::config::MAX_SYSCALL_NUM;
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus};
-use crate::timer::get_time_us;
-
+use crate::mm::translated_byte_buffer;
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token};
+use crate::timer::{get_time_us, get_time};
 #[repr(C)]
 #[derive(Debug)]
 pub struct TimeVal {
@@ -32,13 +32,30 @@ pub fn sys_yield() -> isize {
 
 // YOUR JOB: 引入虚地址后重写 sys_get_time
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
-    let _us = get_time_us();
+    // let buffers = translated_byte_buffer(current_user_token(), buf, len);
+    // let _us = get_time_us();
+    // println!("get_time(): {}", get_time());
+    // println!("get_time_us(): {}", get_time_us());
     // unsafe {
-    //     *ts = TimeVal {
-    //         sec: us / 1_000_000,
-    //         usec: us % 1_000_000,
+    //     *_ts = TimeVal {
+    //         sec: _us / 1_000_000,
+    //         usec: _us % 1_000_000,
     //     };
     // }
+
+    let _us = get_time_us();
+    // 1. 找到虚拟地址_ts对应的物理地址address
+
+    // 2. 把这个物理地址强制转成TimeVal类型数据(ts = address as * mut TimeVal) 设为ts
+
+    // 3. 将ts赋值成_us  PS: 此时_ts是数据虚拟地址(应用地址空间), ts是该数据的物理地址
+    /*
+        *ts = TimeVal {
+            sec: ts / 1_000_000,
+            usec: ts % 1_000_000,
+        }
+
+     */
     0
 }
 

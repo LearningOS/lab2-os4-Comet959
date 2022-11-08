@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use lazy_static::*;
 pub use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
-
+use crate::timer::{get_time_us, get_time, get_time2};
 pub use context::TaskContext;
 
 /// The task manager, where all the tasks are managed.
@@ -147,6 +147,31 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn get_current_task_status(&self) -> TaskStatus {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        return inner.tasks[current].task_status;
+    }
+
+    fn get_current_task_start_time(&self) -> isize {
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        return inner.tasks[current].task_start_time;
+    }
+
+    fn get_current_task_nr(&self) -> usize {
+        return self.inner.exclusive_access().current_task;
+    }
+
+    fn get_current_task_time(&self) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].task_time = get_time2() - inner.tasks[current].task_start_time;
+        let time = inner.tasks[current].task_time;
+        drop(inner);
+        return time;
+    }
 }
 
 /// Run the first task in task list.
@@ -190,4 +215,22 @@ pub fn current_user_token() -> usize {
 /// Get the current 'Running' task's trap contexts.
 pub fn current_trap_cx() -> &'static mut TrapContext {
     TASK_MANAGER.get_current_trap_cx()
+}
+
+pub fn get_current_task_status() -> TaskStatus {
+    return TASK_MANAGER.get_current_task_status();
+}
+
+
+
+pub fn get_current_task_nr() -> usize {
+    return TASK_MANAGER.get_current_task_nr();
+}
+
+pub fn get_current_task_start_time() -> isize {
+    return TASK_MANAGER.get_current_task_start_time();
+}
+
+pub fn get_current_task_time() -> isize {
+    return TASK_MANAGER.get_current_task_time();
 }

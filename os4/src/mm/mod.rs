@@ -23,7 +23,12 @@ use page_table::{PTEFlags, PageTable};
 
 /// initiate heap allocator, frame allocator and kernel space
 pub fn init() {
+    // 动态内存分配器初始化 HEAP_ALLOCATOR  : 用于初始化Rust的堆数据结构
     heap_allocator::init_heap();
+
+    // 物理页帧管理器初始化 FRAME_ALLOCATOR : 物理页帧的分配与回收能力
     frame_allocator::init_frame_allocator();
+    
+    // 创建内核地址空间    KERNEL_SPACE    : CPU开启分页模式, MMU使用内核的多级页表
     KERNEL_SPACE.lock().activate();
 }

@@ -3,7 +3,7 @@ use super::TaskContext;
 use crate::config::{kernel_stack_position, TRAP_CONTEXT};
 use crate::mm::{MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::trap::{trap_handler, TrapContext};
-
+use crate::timer::{get_time2};
 /// task control block structure
 pub struct TaskControlBlock {
     pub task_status: TaskStatus,
@@ -11,6 +11,8 @@ pub struct TaskControlBlock {
     pub memory_set: MemorySet,
     pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
+    pub task_time: isize, // 任务运行的时长
+    pub task_start_time: isize, // 任务启动时间
 }
 
 impl TaskControlBlock {
@@ -41,6 +43,8 @@ impl TaskControlBlock {
             memory_set,
             trap_cx_ppn,
             base_size: user_sp,
+            task_time: 0,
+            task_start_time: get_time2()
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
