@@ -1,7 +1,7 @@
 //! Process management syscalls
 
 use crate::config::MAX_SYSCALL_NUM;
-use crate::mm::translated_byte_buffer;
+use crate::mm::{PhysPageNum, VirtAddr, VirtPageNum, PageTable, PhysAddr};
 use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token};
 use crate::timer::{get_time_us, get_time};
 #[repr(C)]
@@ -32,30 +32,24 @@ pub fn sys_yield() -> isize {
 
 // YOUR JOB: 引入虚地址后重写 sys_get_time
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
-    // let buffers = translated_byte_buffer(current_user_token(), buf, len);
-    // let _us = get_time_us();
-    // println!("get_time(): {}", get_time());
-    // println!("get_time_us(): {}", get_time_us());
-    // unsafe {
-    //     *_ts = TimeVal {
-    //         sec: _us / 1_000_000,
-    //         usec: _us % 1_000_000,
-    //     };
-    // }
-
-    let _us = get_time_us();
     // 1. 找到虚拟地址_ts对应的物理地址address
+    let virt_addr: VirtAddr = VirtAddr::from(_ts as usize);
+    let virt_page_offset: usize = virt_addr.page_offset();
+    let virt_page_nr: VirtPageNum = virt_addr.floor();
+    let page_physical_nr = PageTable::from_token(current_user_token()).translate(virt_page_nr).map(|entry| entry.ppn()).unwrap();
+    let ph_page_addr: PhysAddr = PhysAddr::getPhaddrByOffset(page_physical_nr, virt_page_offset);
 
     // 2. 把这个物理地址强制转成TimeVal类型数据(ts = address as * mut TimeVal) 设为ts
+    let _us = get_time_us();
+    let ts = ph_page_addr.0 as *mut TimeVal;
 
     // 3. 将ts赋值成_us  PS: 此时_ts是数据虚拟地址(应用地址空间), ts是该数据的物理地址
-    /*
+    unsafe {
         *ts = TimeVal {
-            sec: ts / 1_000_000,
-            usec: ts % 1_000_000,
-        }
-
-     */
+            sec: _us / 1_000_000,
+            usec: _us % 1_000_000,
+        };
+    }
     0
 }
 

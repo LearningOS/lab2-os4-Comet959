@@ -243,3 +243,10 @@ where
 
 /// a simple range structure for virtual page number
 pub type VPNRange = SimpleRange<VirtPageNum>;
+
+
+impl PhysAddr { // 生成物理地址
+    pub fn getPhaddrByOffset(ppn: PhysPageNum, offset: usize) -> Self {
+        PhysAddr(PhysAddr::from(ppn).0 | (offset & (PAGE_SIZE - 1)))
+    }
+}

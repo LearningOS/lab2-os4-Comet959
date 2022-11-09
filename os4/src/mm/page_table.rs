@@ -4,6 +4,7 @@ use super::{frame_alloc, FrameTracker, PhysPageNum, StepByOne, VirtAddr, VirtPag
 use alloc::vec;
 use alloc::vec::Vec;
 use bitflags::*;
+use riscv::addr::page;
 
 bitflags! {
     /// page table entry flags
@@ -135,23 +136,23 @@ impl PageTable {
 
 /// translate a pointer to a mutable u8 Vec through page table
 pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
-    let page_table = PageTable::from_token(token);
-    let mut start = ptr as usize;
-    let end = start + len;
-    let mut v = Vec::new();
-    while start < end {
-        let start_va = VirtAddr::from(start);
-        let mut vpn = start_va.floor();
-        let ppn = page_table.translate(vpn).unwrap().ppn();
-        vpn.step();
-        let mut end_va: VirtAddr = vpn.into();
-        end_va = end_va.min(VirtAddr::from(end));
-        if end_va.page_offset() == 0 {
+    let page_table = PageTable::from_token(token); // 通过token读取页表信息
+    let mut start = ptr as usize; // 起始地址 虚拟地址
+    let end = start + len; // 终止地址 虚拟地址
+    let mut v = Vec::new(); // 返回结果
+    while start < end { // 当起始地址小于终止地址
+        let start_va = VirtAddr::from(start); // 将当前地址转换成虚拟地址
+        let mut vpn = start_va.floor(); // 获取当前虚拟地址的虚拟页号
+        let ppn = page_table.translate(vpn).unwrap().ppn(); // 通过查找页表找到当前虚拟页号对应的物理页号.
+        vpn.step(); // 前进到下一个页(虚拟页号加一)
+        let mut end_va: VirtAddr = vpn.into(); // 将前进后的虚拟页号转换成虚拟地址(补0), 作为当前页的结束地址
+        end_va = end_va.min(VirtAddr::from(end)); // 找到数据是否占满了一页(end_va是 end 与 end_va中的最小值, 如果数据长度占满一页那么应该是end_va, 若没占满应该是end).
+        if end_va.page_offset() == 0 { // 没占满 end_va = end(当前页的数据大小偏移的地址)
             v.push(&mut ppn.get_bytes_array()[start_va.page_offset()..]);
-        } else {
+        } else { // 占满 end_va = end_va 下一页的起始地址(虚拟)
             v.push(&mut ppn.get_bytes_array()[start_va.page_offset()..end_va.page_offset()]);
         }
-        start = end_va.into();
+        start = end_va.into(); // 起始地址变成终止地址(然后循环, 若len超过一页, 那么就会循环, 否则就跳出循环)
     }
-    v
+    v // 返回
 }
