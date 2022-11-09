@@ -23,7 +23,7 @@ pub use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
 use crate::timer::{get_time_us, get_time, get_time2};
 pub use context::TaskContext;
-
+use crate::syscall::TaskInfo;
 /// The task manager, where all the tasks are managed.
 ///
 /// Functions implemented on `TaskManager` deals with all task state transitions
@@ -79,6 +79,7 @@ impl TaskManager {
         let mut inner = self.inner.exclusive_access();
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
+        // next_task.task_info_block.task_start_time = get_time2();
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
         drop(inner);
         let mut _unused = TaskContext::zero_init();
@@ -135,6 +136,9 @@ impl TaskManager {
             let current = inner.current_task;
             inner.tasks[next].task_status = TaskStatus::Running;
             inner.current_task = next;
+            if inner.tasks[next].task_info_block.task_time == 0 {
+                inner.tasks[next].task_info_block.task_time = get_time_us() / 1000;
+            }
             let current_task_cx_ptr = &mut inner.tasks[current].task_cx as *mut TaskContext;
             let next_task_cx_ptr = &inner.tasks[next].task_cx as *const TaskContext;
             drop(inner);
@@ -154,24 +158,28 @@ impl TaskManager {
         return inner.tasks[current].task_status;
     }
 
-    fn get_current_task_start_time(&self) -> isize {
+    fn update_current_task_info(&self, ti: *mut TaskInfo) -> isize {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        return inner.tasks[current].task_start_time;
+        let syscalltimes = inner.tasks[current].task_info_block.syscall_times;
+
+        unsafe{
+            *ti = TaskInfo {
+                status: TaskStatus::Running,
+                syscall_times: syscalltimes,
+                time: get_time_us() / 1000 - inner.tasks[current].task_info_block.task_time,
+            };
+        }
+        0
     }
 
-    fn get_current_task_nr(&self) -> usize {
-        return self.inner.exclusive_access().current_task;
-    }
-
-    fn get_current_task_time(&self) -> isize {
+    fn update_syscall_time(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].task_time = get_time2() - inner.tasks[current].task_start_time;
-        let time = inner.tasks[current].task_time;
-        drop(inner);
-        return time;
+
+        inner.tasks[current].task_info_block.syscall_times[syscall_id] += 1;
     }
+
 }
 
 /// Run the first task in task list.
@@ -221,16 +229,10 @@ pub fn get_current_task_status() -> TaskStatus {
     return TASK_MANAGER.get_current_task_status();
 }
 
-
-
-pub fn get_current_task_nr() -> usize {
-    return TASK_MANAGER.get_current_task_nr();
+pub fn set_task_info(ti: *mut TaskInfo) {
+    TASK_MANAGER.update_current_task_info(ti);
 }
 
-pub fn get_current_task_start_time() -> isize {
-    return TASK_MANAGER.get_current_task_start_time();
-}
-
-pub fn get_current_task_time() -> isize {
-    return TASK_MANAGER.get_current_task_time();
+pub fn update_syscall_times(syscall_id: usize) {
+    TASK_MANAGER.update_syscall_time(syscall_id);
 }

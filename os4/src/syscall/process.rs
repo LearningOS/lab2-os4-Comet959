@@ -2,7 +2,7 @@
 
 use crate::config::MAX_SYSCALL_NUM;
 use crate::mm::{PhysPageNum, VirtAddr, VirtPageNum, PageTable, PhysAddr};
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token};
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token, set_task_info};
 use crate::timer::{get_time_us, get_time};
 #[repr(C)]
 #[derive(Debug)]
@@ -69,5 +69,17 @@ pub fn sys_munmap(_start: usize, _len: usize) -> isize {
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info
 pub fn sys_task_info(ti: *mut TaskInfo) -> isize {
-    -1
+    // 1. 找到虚拟地址ti对应的物理地址address
+    let virt_addr: VirtAddr = VirtAddr::from(ti as usize);
+    let virt_page_offset: usize = virt_addr.page_offset();
+    let virt_page_nr: VirtPageNum = virt_addr.floor();
+    let page_physical_nr = PageTable::from_token(current_user_token()).translate(virt_page_nr).map(|entry| entry.ppn()).unwrap();
+    let ph_page_addr: PhysAddr = PhysAddr::getPhaddrByOffset(page_physical_nr, virt_page_offset); // 物理地址
+
+    // 2. 把这个物理地址强制转成TimeVal类型数据(ts = address as * mut TimeVal) 设为ti2
+    let ti2 = ph_page_addr.0 as *mut TaskInfo;
+
+    // 3. 设置信息
+    set_task_info(ti2);
+    0
 }

@@ -1,9 +1,9 @@
 //! Types related to task management
 use super::TaskContext;
-use crate::config::{kernel_stack_position, TRAP_CONTEXT};
+use crate::config::{kernel_stack_position, TRAP_CONTEXT, MAX_SYSCALL_NUM};
 use crate::mm::{MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::trap::{trap_handler, TrapContext};
-use crate::timer::{get_time2};
+use crate::timer::{get_time2, get_time_us};
 /// task control block structure
 pub struct TaskControlBlock {
     pub task_status: TaskStatus,
@@ -11,8 +11,13 @@ pub struct TaskControlBlock {
     pub memory_set: MemorySet,
     pub trap_cx_ppn: PhysPageNum,
     pub base_size: usize,
-    pub task_time: isize, // 任务运行的时长
-    pub task_start_time: isize, // 任务启动时间
+    pub task_info_block: TaskInfoBlock,
+}
+//#[derive(Copy, Clone)]
+pub struct TaskInfoBlock {
+    pub syscall_times: [u32; MAX_SYSCALL_NUM],
+    // pub task_start_time: usize, // 启动时间
+    pub task_time: usize, // 运行时间
 }
 
 impl TaskControlBlock {
@@ -43,8 +48,11 @@ impl TaskControlBlock {
             memory_set,
             trap_cx_ppn,
             base_size: user_sp,
-            task_time: 0,
-            task_start_time: get_time2()
+            task_info_block: TaskInfoBlock {
+                syscall_times: [0; MAX_SYSCALL_NUM],
+                // task_start_time: get_time2(),
+                task_time: 0,
+            },
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();

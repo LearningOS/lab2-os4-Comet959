@@ -17,7 +17,7 @@ pub fn set_next_trigger() {
     set_timer(get_time() + CLOCK_FREQ / TICKS_PER_SEC);
 }
 
-pub fn get_time2() -> isize {
+pub fn get_time2() -> usize {
     let us = get_time_us();
-    return (((us / 1_000_000) & 0xffff) * 1000 + (us % 1_000_000) / 1000) as isize;
+    return (((us / 1_000_000) & 0xffff) * 1000 + (us % 1_000_000) / 1000);
 }
