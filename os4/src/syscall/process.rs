@@ -2,7 +2,7 @@
 
 use crate::config::MAX_SYSCALL_NUM;
 use crate::mm::{PhysPageNum, VirtAddr, VirtPageNum, PageTable, PhysAddr};
-use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token, set_task_info};
+use crate::task::{exit_current_and_run_next, suspend_current_and_run_next, TaskStatus, current_user_token, set_task_info, get_mmap, get_munmap};
 use crate::timer::{get_time_us, get_time};
 #[repr(C)]
 #[derive(Debug)]
@@ -60,11 +60,11 @@ pub fn sys_set_priority(_prio: isize) -> isize {
 
 // YOUR JOB: 扩展内核以实现 sys_mmap 和 sys_munmap
 pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    -1
+    get_mmap(_start, _len, _port)
 }
 
 pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    -1
+    get_munmap(_start, _len)
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

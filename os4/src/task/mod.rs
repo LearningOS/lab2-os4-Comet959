@@ -14,7 +14,10 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+
+use crate::config::PAGE_SIZE;
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::{VirtPageNum, VirtAddr, MapPermission, VPNRange};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
@@ -180,6 +183,66 @@ impl TaskManager {
         inner.tasks[current].task_info_block.syscall_times[syscall_id] += 1;
     }
 
+    fn gmmap(&self, start: usize, len: usize, port: usize) -> isize { // 申请mmap
+        // 1. 判断错误
+        if start & (PAGE_SIZE - 1) != 0 { return -1; }
+        if port & !0x7 != 0 { return -1; }
+        if port & 0x7 == 0 { return -1; }
+
+        // 2. 获取进程地址空间
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let current_task = &mut inner.tasks[current];
+        let task_memory_set = &mut current_task.memory_set;
+
+        // 3. 获取虚拟页
+        let svpn = VirtPageNum::from(VirtAddr(start));
+        let evpn = VirtPageNum::from(VirtAddr(start + len).ceil());
+
+        // 4. 判断是否被占
+        for vpn in svpn.0 .. evpn.0 {
+            if let Some(entry) = task_memory_set.translate(VirtPageNum(vpn)) {
+                if entry.is_valid() { 
+                    return  -1;
+                }
+            }
+        }
+
+        // 5. 回写
+        let permission: MapPermission = MapPermission::from_bits((port as u8) << 1).unwrap() | MapPermission::U;
+        task_memory_set.insert_framed_area(VirtAddr(start), VirtAddr(start + len), permission);
+
+        0
+    }
+
+    fn gmunmap(&self, start: usize, len: usize) -> isize { // 回收
+        // 1. 判断输入
+        if start & (PAGE_SIZE - 1) != 0 { return -1; }
+        
+        // 2. 获取进程地址空间
+        let mut inner = self.inner.exclusive_access(); // 获取进程
+        let current = inner.current_task;
+        let current_task = &mut inner.tasks[current];
+        let task_memory_set = &mut current_task.memory_set;
+    
+        // 3. 获取虚拟页号
+        let svpn = VirtPageNum::from(VirtAddr(start));
+        let evpn = VirtPageNum::from(VirtAddr(start + len).ceil());
+    
+        // 4. 判断是否被占
+        for vpn in svpn.0 .. evpn.0 {
+            if let Some(entry) = task_memory_set.translate(VirtPageNum(vpn)) {
+                if !entry.is_valid() {
+                    return -1;
+                }
+            }
+        }
+        // 5. 回写
+        let lim = VPNRange::new(svpn, evpn);
+        task_memory_set.unmap(lim);
+        0
+    }
+ 
 }
 
 /// Run the first task in task list.
@@ -235,4 +298,12 @@ pub fn set_task_info(ti: *mut TaskInfo) {
 
 pub fn update_syscall_times(syscall_id: usize) {
     TASK_MANAGER.update_syscall_time(syscall_id);
+}
+
+pub fn get_mmap(start: usize, len: usize, port: usize) -> isize{
+    TASK_MANAGER.gmmap(start, len, port)
+}
+
+pub fn get_munmap(start: usize, len: usize) -> isize{
+    TASK_MANAGER.gmunmap(start, len)
 }
