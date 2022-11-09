@@ -41,10 +41,10 @@ fn clear_bss() {
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    logging::init();
+    logging::init();    
     println!("[kernel] Hello, world!");
     mm::init();
-    println!("[kernel] back to world!");
+    println!("[kernel] back to world!"); // 首先调用一个MMAP系统调用
     mm::remap_test();
     trap::init();
     //trap::enable_interrupt();

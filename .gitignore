@@ -6,6 +6,7 @@
 **/Cargo.lock
 /os*/src/link_app.S
 /os/last-*
-
+/os4-bak
+/os4-ref-comment
 tools
 workplace/
